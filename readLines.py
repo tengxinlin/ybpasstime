@@ -5,6 +5,8 @@ import configparser
 来选取上游前n个里程线区域和下游m个里程线区域
 """
 def readlines(given_point,n,m):
+    """读取配置文件中的航道里程线，根据上界限标的经纬度坐标29.5969127895924,106.797736287117
+    来选取上游前n个里程线区域和下游m个里程线区域"""
     # 创建一个ConfigParser对象
     config = configparser.ConfigParser()
     # 读取INI文件
@@ -101,7 +103,7 @@ def do_line_segments_intersect(p1, p2, p3, p4):
 
 """调整多边形的后两个点，使得前两个点连线与后两个点连线不相交,获得一个顺序排列得多边形区域坐标点"""
 def adjust_polygon(polygon):
-    p1, p2, p3, p4 = polygon
+    p1, p2, p3, p4 = polygon[0],polygon[1],polygon[2],polygon[3]
     #构建区域是第一条里程线和第二条里程线，现在要判断这个区域坐标排列是否顺序，应该是第一个点和第四个点的线段与第二个点与第三个点的线段来判断
     if do_line_segments_intersect(p1, p4, p3, p2):
         # 交换p3和p4的位置
@@ -116,6 +118,9 @@ def is_point_in_polygon(x, y, polygon):
     :param polygon: 多边形顶点列表，每个顶点是一个(x, y)元组
     :return: 点在多边形内返回True，否则返回False
     """
+    #将多边形区域按照顺序的坐标点排列
+    polygon=adjust_polygon(polygon)
+
     n = len(polygon)
     inside = False
     p1x, p1y = polygon[0]
@@ -133,7 +138,153 @@ def is_point_in_polygon(x, y, polygon):
 
     return inside
 
-areaTwoLines=readlines((29.5969734277757,106.805573701859),5,5)
- # 打印areaTwoLines列表
-for i, polygon in enumerate(areaTwoLines):
-    print(f"Polygon {i + 1}: {polygon}")
+
+
+def get_areaTwoLines_100(areaTwoLines):
+    """把获取到的里程线区域，每个区域划分为默认100个小区域，相当于一个区域占10米"""
+    # 对每个区域进行划分
+    areaTwoLines_100=[]
+    for polygon in areaTwoLines:
+        small_regions = divide_polygon_into_small_regions(polygon)
+        areaTwoLines_100.extend(small_regions)
+    return areaTwoLines_100
+
+
+def divide_polygon_into_small_regions(polygon,number=100):
+    """
+    将获得的控制河段的里程线区域的每一个区域划分为默认100个小区域
+    :param polygon: 多边形顶点列表，每个顶点是一个(x, y)元组
+    :return: 划分后的小区域顶点列表
+    """
+    small_regions = []
+    # 将多边形区域按照顺序的坐标点排列，这样划分为100份小区域的时候，就是第1个点和第3个点连成的线段、第2个点和第4个点连成的线段来划分
+    polygon = adjust_polygon(polygon)
+
+    n = len(polygon)
+
+    for i in range(n):
+        p1 = polygon[i]
+        p2 = polygon[(i + 1) % n]
+        p3 = polygon[(i + 2) % n]
+        p4 = polygon[(i + 3) % n]
+
+        # 使用线性插值找到p1和p3之间的100个点
+        x1_values = [p1[0] + (p3[0] - p1[0]) * t / number for t in range(number+1)]
+        y1_values = [p1[1] + (p3[1] - p1[1]) * t / number for t in range(number+1)]
+
+
+        # 使用线性插值找到p2和p4之间的100个点
+        x2_values = [p2[0] + (p4[0] - p2[0]) * t / number for t in range(number+1)]
+        y2_values = [p2[1] + (p4[1] - p2[1]) * t / number for t in range(number+1)]
+
+        # 将这些点作为小区域的顶点
+        for j in range(number):
+            p11=(x1_values[j],y1_values[j])
+            p22=(x2_values[j],y2_values[j])
+            p33=(x1_values[j+1],y1_values[j+1])
+            p44=(x2_values[j+1],y2_values[j+1])
+            small_region = (p11,p22,p33,p44)
+            small_regions.append(small_region)
+
+    return small_regions
+
+
+def get_AISPointIndex(aisPoint,small_regions):
+    """计算AIS点在小里程线区域内的索引号
+    上界限标的中心点在每默认10米的小里程线区域（10米一个区域）的与AIS坐标点在每10米的小里程线区域的索引号只差就等于
+    :param aisPoint: AIS坐标点
+    :param riverPoint：控制河段上界限表中心点所在的索引号
+    :param small_regions：将获得的控制河段的里程线区域的每一个区域划分为默认100个小区域
+    :return: 距离，索引号乘以默认10米一个区域，若AIS不在计算区域内，返回NONE
+    """
+    indexAISPoint = 0
+
+    # 遍历small_regions列表，检查给定的经纬度坐标是否在每个区域的四个点围成的多边形内
+    for i, polygon in enumerate(small_regions):
+        if is_point_in_polygon(aisPoint[0], aisPoint[1], polygon):
+            # 如果坐标在某个区域内，记录该区域的索引
+            indexAISPoint = i
+            break
+    else:#AIS点不在计算区域内，返回距离为空
+        return None
+
+    for i, polygon in enumerate(small_regions):
+        if is_point_in_polygon(aisPoint[0], aisPoint[1], polygon):
+            # 如果坐标在某个区域内，记录该区域的索引
+            indexAISPoint = i
+            break
+    return indexAISPoint
+
+def get_UpBorderPointIndex(riverPoint,small_regions):
+    """计算控制河段上界限标的中心点在每10米的小里程线区域（默认10米一个区域）的索引号
+    :param
+    riverPoint：控制河段上界限表中心点坐标
+    :param
+    small_regions：将获得的控制河段的里程线区域的每一个区域划分为默认100个小区域
+    :return 索引号
+    """
+    index = 0
+
+    # 遍历small_regions列表，检查给定的经纬度坐标是否在每个区域的四个点围成的多边形内
+    for i, polygon in enumerate(small_regions):
+        if is_point_in_polygon(riverPoint[0], riverPoint[1], polygon):
+            # 如果坐标在某个区域内，记录该区域的索引
+            index = i
+            break
+    return index
+
+def get_UpWhistlePointIndex(riverPoint,small_regions):
+    """计算控制河段上鸣笛标标的中心点在每10米的小里程线区域（默认10米一个区域）的索引号
+    :param
+    riverPoint：控制河段上鸣笛标标中心点坐标
+    :param
+    small_regions：将获得的控制河段的里程线区域的每一个区域划分为默认100个小区域
+    :return 索引号
+    """
+    index = 0
+
+    # 遍历small_regions列表，检查给定的经纬度坐标是否在每个区域的四个点围成的多边形内
+    for i, polygon in enumerate(small_regions):
+        if is_point_in_polygon(riverPoint[0], riverPoint[1], polygon):
+            # 如果坐标在某个区域内，记录该区域的索引
+            index = i
+            break
+    return index
+
+def get_DownBorderPointIndex(riverPoint,small_regions):
+    """计算控制河段下界限标的中心点在每10米的小里程线区域（默认10米一个区域）的索引号
+    :param
+    riverPoint：控制河段下界限表中心点坐标
+    :param
+    small_regions：将获得的控制河段的里程线区域的每一个区域划分为默认100个小区域
+    :return 索引号
+    """
+    index = 0
+
+    # 遍历small_regions列表，检查给定的经纬度坐标是否在每个区域的四个点围成的多边形内
+    for i, polygon in enumerate(small_regions):
+        if is_point_in_polygon(riverPoint[0], riverPoint[1], polygon):
+            # 如果坐标在某个区域内，记录该区域的索引
+            index = i
+            break
+    return index
+
+def get_DownWhistlePointIndex(riverPoint,small_regions):
+    """计算控制河段下鸣笛标标的中心点在每10米的小里程线区域（默认10米一个区域）的索引号
+    :param
+    riverPoint：控制河段下鸣笛标标中心点坐标
+    :param
+    small_regions：将获得的控制河段的里程线区域的每一个区域划分为默认100个小区域
+    :return 索引号
+    """
+    index = 0
+
+    # 遍历small_regions列表，检查给定的经纬度坐标是否在每个区域的四个点围成的多边形内
+    for i, polygon in enumerate(small_regions):
+        if is_point_in_polygon(riverPoint[0], riverPoint[1], polygon):
+            # 如果坐标在某个区域内，记录该区域的索引
+            index = i
+            break
+    return index
+
+get_areaTwoLines_100(readlines((29.5858527082969,106.844653487206),6,5))
