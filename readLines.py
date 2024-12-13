@@ -157,7 +157,7 @@ def divide_polygon_into_small_regions(polygon,number=100):
     :return: 划分后的小区域顶点列表
     """
     small_regions = []
-    # 将多边形区域按照顺序的坐标点排列，这样划分为100份小区域的时候，就是第1个点和第3个点连成的线段、第2个点和第4个点连成的线段来划分
+    # 将多边形区域按照顺序的坐标点排列，这样划分为100份小区域的时候，就是第1个点和第4个点连成的线段、第2个点和第3个点连成的线段来划分
     polygon = adjust_polygon(polygon)
 
     n = len(polygon)
@@ -169,13 +169,13 @@ def divide_polygon_into_small_regions(polygon,number=100):
         p4 = polygon[(i + 3) % n]
 
         # 使用线性插值找到p1和p3之间的100个点
-        x1_values = [p1[0] + (p3[0] - p1[0]) * t / number for t in range(number+1)]
-        y1_values = [p1[1] + (p3[1] - p1[1]) * t / number for t in range(number+1)]
+        x1_values = [p1[0] + (p4[0] - p1[0]) * t / number for t in range(number+1)]
+        y1_values = [p1[1] + (p4[1] - p1[1]) * t / number for t in range(number+1)]
 
 
         # 使用线性插值找到p2和p4之间的100个点
-        x2_values = [p2[0] + (p4[0] - p2[0]) * t / number for t in range(number+1)]
-        y2_values = [p2[1] + (p4[1] - p2[1]) * t / number for t in range(number+1)]
+        x2_values = [p2[0] + (p3[0] - p2[0]) * t / number for t in range(number+1)]
+        y2_values = [p2[1] + (p3[1] - p2[1]) * t / number for t in range(number+1)]
 
         # 将这些点作为小区域的顶点
         for j in range(number):

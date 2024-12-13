@@ -244,7 +244,7 @@ cursor.execute("select * from shippassrecord")
 results = cursor.fetchall()
 
 # 筲箕背控制河段的上游6个区域，下游4个区域的航道里程线
-SJB_UpBorder = (29, 108)  # 筲箕背的上界限表的中心点，纬度lat在前，经度log在后
+SJB_UpBorder = (29.5969734277757,106.805573701859)  # 筲箕背的上界限表的中心点，纬度lat在前，经度log在后
 SJB_DownBorder = (29,109)  # 筲箕背的下界限表的中心点，纬度lat在前，经度log在后
 areaTwoLines_SJB = readLines.readlines(SJB_UpBorder, 6, 5)  # 筲箕背控制河段的上游6个，下游5个的航道里程线区域（1km一个区域）
 areaTwoLines_SJB_100 = readLines.get_areaTwoLines_100(
@@ -254,7 +254,7 @@ index_SJB_DownBorder = readLines.get_DownBorderPointIndex(SJB_DownBorder, areaTw
 
 # 铜鼓滩控制河段的上游6个区域，下游4个区域的航道里程线
 TGT_UpBorder = (29.5969267830225,106.828431487083)  # 铜鼓滩的上界限表的中心点，纬度lat在前，经度log在后
-TGT_DownBorder = (29.5969267830225,106.828431487083)  # 铜鼓滩的下界限表的中心点，纬度lat在前，经度log在后
+TGT_DownBorder = (29.5969734277757,106.805573701859)  # 铜鼓滩的下界限表的中心点，纬度lat在前，经度log在后
 areaTwoLines_TGT = readLines.readlines(TGT_UpBorder, 6, 5)  # 铜鼓滩控制河段的上游6个，下游5个的航道里程线区域（1km一个区域）
 areaTwoLines_TGT_100 = readLines.get_areaTwoLines_100(
     areaTwoLines_TGT)  # 铜鼓滩控制河段的上游6个，下游5个的航道里程线区域（1km一个区域），每个区域划分为100份
@@ -262,7 +262,7 @@ index_TGT_UpBorder = readLines.get_UpBorderPointIndex(TGT_UpBorder, areaTwoLines
 index_TGT_DownBorder = readLines.get_DownBorderPointIndex(TGT_DownBorder, areaTwoLines_TGT_100)  # 铜鼓滩控制河段的下界限表所作的索引
 
 # 香炉摊控制河段的上游6个区域，下游4个区域的航道里程线
-XLT_UpBorder = (29, 108)  # 香炉摊的上界限表的中心点，纬度lat在前，经度log在后
+XLT_UpBorder = (29.5969734277757,106.805573701859)  # 香炉摊的上界限表的中心点，纬度lat在前，经度log在后
 XLT_DownBorder = (29.5969267830225,106.828431487083)  # 香炉摊的下界限表的中心点，纬度lat在前，经度log在后
 areaTwoLines_XLT = readLines.readlines(XLT_UpBorder, 6, 5)  # 香炉摊控制河段的上游6个，下游5个的航道里程线区域（1km一个区域）
 areaTwoLines_XLT_100 = readLines.get_areaTwoLines_100(
@@ -274,14 +274,25 @@ passrecorddata = list()
 for i in results:
     data = list()
     try:
-        passtime = str(round((i[12] - i[11]).seconds / 60, 2)) + 'min'
+        # 定义时间格式
+        time_format = "%d/%m/%Y %H:%M:%S"
+
+        # 两个时间字符串
+        time_str1 = i[11]#进漕时间
+        time_str2 = i[12]#出漕时间
+
+        # 将字符串转换为datetime对象
+        time_obj1 = datetime.strptime(time_str1, time_format)
+        time_obj2 = datetime.strptime(time_str2, time_format)
+        passtime = str(round((time_obj2 - time_obj1).seconds / 60, 2)) + 'min'
     except TypeError:
         continue
     if i[17] is None:  # waterlevel为空就不需要
         continue
     # 备注有松车下或下界限标等候,说明不是正常上下水通过的船舶，船舶有所减速或停留，需要舍弃
-    if ("松车下" in i[21]) or ("下界限标等候" in i[21]) or ("下界限标外等候" in i[21]):
-        continue
+    if i[21] is not None :
+        if ("松车下" in i[21]) or ("下界限标等候" in i[21]) or ("下界限标外等候" in i[21]):
+            continue
 
     data.append(i[1])  # shipmmsi
     data.append(i[6])  # shipupordown  0表示上水,1表示下水
