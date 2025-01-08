@@ -106,7 +106,7 @@ def adjust_polygon(polygon):
     p1, p2, p3, p4 = polygon[0],polygon[1],polygon[2],polygon[3]
     #构建区域是第一条里程线和第二条里程线，现在要判断这个区域坐标排列是否顺序，应该是第一个点和第四个点的线段与第二个点与第三个点的线段来判断
     if do_line_segments_intersect(p1, p4, p3, p2):
-        # 交换p3和p4的位置
+        # 如果相交，要顺序排列，交换p3和p4的位置
         return [p1, p2, p4, p3]
     return polygon
 
@@ -158,33 +158,33 @@ def divide_polygon_into_small_regions(polygon,number=100):
     """
     small_regions = []
     # 将多边形区域按照顺序的坐标点排列，这样划分为100份小区域的时候，就是第1个点和第4个点连成的线段、第2个点和第3个点连成的线段来划分
-    polygon = adjust_polygon(polygon)
+    polygon = adjust_polygon(polygon)#将多边形区域的坐标点按照顺时针（或逆时针）排列
 
     n = len(polygon)
 
-    for i in range(n):
-        p1 = polygon[i]
-        p2 = polygon[(i + 1) % n]
-        p3 = polygon[(i + 2) % n]
-        p4 = polygon[(i + 3) % n]
 
-        # 使用线性插值找到p1和p3之间的100个点
-        x1_values = [p1[0] + (p4[0] - p1[0]) * t / number for t in range(number+1)]
-        y1_values = [p1[1] + (p4[1] - p1[1]) * t / number for t in range(number+1)]
+    p1 = polygon[0]
+    p2 = polygon[1]
+    p3 = polygon[2]
+    p4 = polygon[3]
+
+    # 使用线性插值找到p1和p4之间的100个点
+    x1_values = [p1[0] + (p4[0] - p1[0]) * t / number for t in range(number+1)]
+    y1_values = [p1[1] + (p4[1] - p1[1]) * t / number for t in range(number+1)]
 
 
-        # 使用线性插值找到p2和p4之间的100个点
-        x2_values = [p2[0] + (p3[0] - p2[0]) * t / number for t in range(number+1)]
-        y2_values = [p2[1] + (p3[1] - p2[1]) * t / number for t in range(number+1)]
+    # 使用线性插值找到p2和p3之间的100个点
+    x2_values = [p2[0] + (p3[0] - p2[0]) * t / number for t in range(number+1)]
+    y2_values = [p2[1] + (p3[1] - p2[1]) * t / number for t in range(number+1)]
 
-        # 将这些点作为小区域的顶点
-        for j in range(number):
-            p11=(x1_values[j],y1_values[j])
-            p22=(x2_values[j],y2_values[j])
-            p33=(x1_values[j+1],y1_values[j+1])
-            p44=(x2_values[j+1],y2_values[j+1])
-            small_region = (p11,p22,p33,p44)
-            small_regions.append(small_region)
+    # 将这些点作为小区域的顶点
+    for j in range(number):
+        p11=(x1_values[j],y1_values[j])
+        p22=(x2_values[j],y2_values[j])
+        p33=(x1_values[j+1],y1_values[j+1])
+        p44=(x2_values[j+1],y2_values[j+1])
+        small_region = (p11,p22,p44,p33)#这样获取得到的四个坐标点是顺时针的
+        small_regions.append(small_region)
 
     return small_regions
 
@@ -287,4 +287,32 @@ def get_DownWhistlePointIndex(riverPoint,small_regions):
             break
     return index
 
-get_areaTwoLines_100(readlines((29.5858527082969,106.844653487206),6,5))
+
+def save_coordinates_to_txt(coordinates_list, filename):
+    """
+    将经纬度坐标数据保存到txt文件中
+    每个四边形坐标组作为一行
+
+    参数:
+    coordinates_list: 包含多个四边形坐标的列表
+    filename: 保存的文件名
+    """
+    with open(filename, 'w', encoding='utf-8') as f:
+        for quad_coords in coordinates_list:
+            # 将每个坐标点转换为字符串，保留原始精度
+            coords_str = ""
+            for point in quad_coords:
+                coords_str += f"({point[0]},{point[1]}),"
+            # 去掉最后一个逗号并写入文件
+            coords_str = coords_str.rstrip(',')
+            f.write(coords_str + '\n')
+
+#list=readlines((28.805797,104.953079),6,5)
+#list=get_areaTwoLines_100(readlines((28.805797,104.953079),6,5))
+#save_coordinates_to_txt(list, "coordinates.txt")
+
+
+
+
+
+
